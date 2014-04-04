@@ -1,20 +1,26 @@
+import argparse
 import sys
 from PIL import Image
 import pygame
 import random
 from collections import defaultdict
 
+parser = argparse.ArgumentParser(description='Turns images into ASCII text.')
+parser.add_argument('infile', help = 'Input image')
+parser.add_argument('outfile', nargs = '?', default = sys.stdout, type = argparse.FileType('w'), help = 'Text file for output. Default: console')
+parser.add_argument('-image', nargs = '?', help = 'Image filename for image output', metavar = 'FILENAME')
+parser.add_argument('-font', default = 12, type = int, help = 'Font size used. Default: %(default)s', metavar = 'FONTSIZE')
+parser.add_argument('-size', nargs = 2, type = int, help ='Width and height of output, in pixels', metavar = ('WIDTH', 'HEIGHT'))
+parser.add_argument('-c', action = 'store_true', help = 'Colorizes output image')
+args = parser.parse_args()
+
 pygame.init()
 
-# Open files for input and output
-
-fname = sys.argv[1]
-    
-image = Image.open(fname)
+infile = Image.open(args.infile)
 
 # Load font and get size of 1 character
-font = pygame.font.SysFont('monospace', 12)
-width, height = font.size(' ')
+font = pygame.font.SysFont('monospace', args.font)
+chwidth, chheight = font.size(' ')
 
 mapping = defaultdict(list)
 
@@ -30,8 +36,11 @@ for i in xrange(32,127):
     mapping[covered].append(chr(i))
 
 #downsize the image so each pixel is the size of a character
-oldwidth, oldheight = image.size
-im = image.resize((oldwidth/width, oldheight/height), Image.ANTIALIAS)
+oldwidth, oldheight = infile.size
+if(args.size):
+    im = infile.resize((args.size[0]/chwidth, args.size[1]/chheight), Image.ANTIALIAS)
+else:
+    im = infile.resize((oldwidth/chwidth, oldheight/chheight), Image.ANTIALIAS)
 
 # Go through each pixel, and generate the text representation
 # A random character is chosen from the group that has the same
@@ -53,20 +62,22 @@ for i in xrange(im.size[1]):
         outstring+=(char)
     outstrings.append(outstring)
 
-
+if(args.outfile):
 # create and fill image with text
-outsurface = pygame.Surface((im.size[0]*width,im.size[1]*height))
-outsurface.fill((255,255,255))
+    outsurface = pygame.Surface((im.size[0]*chwidth,im.size[1]*chheight))
+    outsurface.fill((255,255,255))
 
-for i, line in enumerate(outstrings):
-    for j, char in enumerate(line):
-        text = font.render(char,0,im.getpixel((j,i)))
-        outsurface.blit(text,(width*j,height*i))
+    for i, line in enumerate(outstrings):
+        for j, char in enumerate(line):
+            if(args.c):
+                text = font.render(char,0,im.getpixel((j,i)))
+            else:
+                text = font.render(char,0,(0,0,0))
+            outsurface.blit(text,(chwidth*j,chheight*i))
 
-pygame.image.save(outsurface,fname+'.png')
+    pygame.image.save(outsurface,args.image)
 
 #save text
-outfile = open(fname+'.txt','w')
 for line in outstrings:
-    outfile.write("%s\n" % line)
-outfile.close()
+    args.outfile.write("%s\n" % line)
+args.outfile.close()
